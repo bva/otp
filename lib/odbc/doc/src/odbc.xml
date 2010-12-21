@@ -101,8 +101,9 @@
  odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
       {sql_decimal, precision(), scale()} |
       {sql_numeric, precision(), scale()} |
-      {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} | {sql_wvarchar, size()}| {sql_float, precision()} |
-      {sql_float, precision()} | sql_real | sql_double | sql_bit | atom()
+      {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} |
+      {sql_wvarchar, size()} | sql_timestamp | {sql_float, precision()} |
+      sql_real | sql_double | sql_bit | atom()
     </code>
     <code type="none">
  precision() = integer()    </code>
@@ -294,11 +295,11 @@
       <type>
         <v>Ref = connection_reference()</v>
         <v>SQLQuery = string() - a SQL query with parameter markers/place holders in form of question marks.</v>
-        <v>Params = [{odbc_data_type(), [value()]}] |[{odbc_data_type(), in_or_out(), [value()]}]  </v>
+        <v>Params = [{odbc_data_type(), Values}] | [{odbc_data_type(), in_or_out(), Values}]  </v>
 	<v>in_or_out = in | out | inout</v>
 	<d>Defines IN, OUT, and IN OUT Parameter Modes for stored procedures.</d>
 	<v>TimeOut = time_out()</v>
-        <v>Values = term() - Must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType</v>
+        <v>Values = [term() | null] - term() must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType</v>
       </type>
       <desc>
         <p>Executes a parameterized SQL query. For an

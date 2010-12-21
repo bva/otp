@@ -1571,9 +1571,21 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
     long val;
     param_array* param;
     TIMESTAMP_STRUCT* ts;
+    char null_or_bool[MAXATOMLEN];
     
     ei_get_type(buffer, index, &erl_type, &size);
     param = &(*params)[i];
+
+
+    if(erl_type == ERL_ATOM_EXT) {
+	ei_decode_atom(buffer, index, null_or_bool);
+
+	if(!strcmp(null_or_bool, "null")) {
+	    param->values.ptr = NULL;
+	    param->type.strlen_or_indptr_array[j] = SQL_NULL_DATA;
+	    return TRUE;
+	}
+    }
 
     switch (param->type.c) {
     case SQL_C_CHAR:
@@ -1646,7 +1658,15 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 	if((erl_type != ERL_ATOM_EXT)) {
 		return FALSE;
 	}
-	ei_decode_boolean(buffer, index, &(param->values.bool[j]));
+
+	if(!strcmp(null_or_bool, "true")) {
+	    param->values.bool[j] = TRUE;
+	} else if(!strcmp(null_or_bool, "false")) {
+	    param->values.bool[j] = FALSE;
+	} else {
+	    return FALSE;
+	}
+
 	break;
 	
     default:
@@ -2057,7 +2077,11 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
     ei_decode_long(buffer, index, &user_type);
 
     params->type.strlen_or_indptr = (SQLINTEGER)NULL;
-    params->type.strlen_or_indptr_array = NULL;
+    params->type.strlen_or_indptr_array =
+	(SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
+    memset(params->type.strlen_or_indptr_array,
+	   0, num_param_values * sizeof(SQLINTEGER));
+
     params->type.decimal_digits = (SQLINTEGER)0;
   
     switch (user_type) {
@@ -2102,8 +2126,6 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	    params->values.floating =
 		(double *)safe_malloc(num_param_values * params->type.len);
 	} else if(params->type.c == SQL_C_CHAR) {
-	    params->type.strlen_or_indptr_array
-		= (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
 	    params->values.string =
 		(byte *)safe_malloc(num_param_values *
 				    sizeof(byte)* params->type.len);
@@ -2121,8 +2143,6 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	 params->type.len = length+1;
 	 params->type.c = SQL_C_CHAR;
 	 params->type.col_size = (SQLUINTEGER)length;
-	 params->type.strlen_or_indptr_array =
-	     (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
 	 params->values.string =
 	    (byte *)safe_malloc(num_param_values *
 				sizeof(byte)* params->type.len);
@@ -2140,8 +2160,6 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	params->type.len = (length+1)*sizeof(SQLWCHAR);
         params->type.c = SQL_C_WCHAR;
         params->type.col_size = (SQLUINTEGER)length;
-        params->type.strlen_or_indptr_array =
-          (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
         params->values.string =
           (byte *)safe_malloc(num_param_values * sizeof(byte) * params->type.len);
 	

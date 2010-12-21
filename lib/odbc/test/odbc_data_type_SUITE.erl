@@ -48,7 +48,7 @@ all(suite) ->
     end.						  
 
 all() ->
-    [char, int, floats, dec_and_num, timestamp].
+    [null_values, char, int, floats, dec_and_num, timestamp].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -124,6 +124,22 @@ end_per_testcase(_TestCase, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
+null_values(doc) ->
+    ["Tests insertion/selection of null values"];
+
+null_values(Config) ->
+    Ref = ?config(connection_ref, Config),
+    Table = ?config(tableName, Config),
+
+    {updated, _} =  % Value == 0 || -1 driver dependent!
+	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+			   ?RDBMS:create_int_table()),
+
+    {updated, _} = odbc:param_query(Ref,"INSERT INTO " ++ Table ++  "(FIELD) values(?)",
+				    [{sql_integer, [null, null]}]),
+
+    {selected,_, [{null}, {null}]} = odbc:sql_query(Ref, "SELECT * FROM " ++ Table).
+
 char(doc) ->
     ["Tests char data types"]; 
 
