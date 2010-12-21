@@ -234,7 +234,6 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
 					   int cols,
 					   int num_param_values,
 					   db_state *state);
-static void * retrive_param_values(param_array *Param);
 
 static db_column retrive_binary_data(db_column column, int column_nr,
 				     db_state *state);
@@ -1109,7 +1108,7 @@ static db_result_msg encode_out_params(db_state *state,
                 column.type.strlen_or_indptr == SQL_NULL_DATA) {
                 ei_x_encode_atom(&dynamic_buffer(state), "null");
             } else {
-                void* values = retrive_param_values(&column);
+                void* values = column.values.ptr;
                 switch(column.type.c) {
                 case SQL_C_TYPE_TIMESTAMP:
                   ts = (TIMESTAMP_STRUCT*) values;
@@ -1977,7 +1976,7 @@ static void free_params(param_array **params, int cols)
 	    if((*params)[i].type.strlen_or_indptr_array != NULL){
 		free((*params)[i].type.strlen_or_indptr_array);
 	    }    
-	    free(retrive_param_values(&((*params)[i])));
+	    free((*params)[i].values.ptr);
 	} 
 	free(*params);
 	*params = NULL;
@@ -2399,15 +2398,14 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
 	    }
 	}
 
-	Values = retrive_param_values(&params[i]); 
-
 	if(!sql_success(
 	    SQLBindParameter(statement_handle(state), i + 1,
 			     params[i].input_output_type,
 			     params[i].type.c,
 			     params[i].type.sql,
 			     params[i].type.col_size,
-			     params[i].type.decimal_digits, Values,
+			     params[i].type.decimal_digits,
+			     params[i].values.ptr,
 			     params[i].type.len,
 			     params[i].type.strlen_or_indptr_array))) {
 	    DO_EXIT(EXIT_BIND);
@@ -2417,24 +2415,6 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
     return params;
 }
  
-static void * retrive_param_values(param_array *Param)
-{
-    switch(Param->type.c) {
-    case SQL_C_CHAR:
-    case SQL_C_WCHAR:
-    case SQL_C_TYPE_TIMESTAMP:
-        return (void *)Param->values.string;
-    case SQL_C_SLONG:
-	return (void *)Param->values.integer;
-    case SQL_C_DOUBLE: 
-	return (void *)Param->values.floating;
-    case SQL_C_BIT:
-	return (void *)Param->values.bool;
-    default:
-	DO_EXIT(EXIT_FAILURE); /* Should not happen */
-    }
-}
-
 /* Description: More than one call to SQLGetData may be required to retrieve
    data from a single column with  binary data. SQLGetData then returns
    SQL_SUCCESS_WITH_INFO nd the SQLSTATE will have the value 01004 (Data
