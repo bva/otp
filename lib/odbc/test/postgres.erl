@@ -175,7 +175,7 @@ int_max_selected() ->
 %-------------------------------------------------------------------------
 big_int_min() ->
     -9223372036854775808.
-   
+
 big_int_max() ->
     9223372036854775807.
 
@@ -183,10 +183,10 @@ create_big_int_table() ->
      " (FIELD bigint )".
 
 big_int_min_selected() ->
-    {selected,["field"], [{"-9223372036854775808"}]}.
+    {selected,["field"], [{big_int_min()}]}.
 
 big_int_max_selected() ->
-    {selected,["field"], [{"9223372036854775807"}]}.
+    {selected,["field"], [{big_int_max()}]}.
 
 %-------------------------------------------------------------------------
 bit_false() ->
@@ -245,6 +245,10 @@ param_select_small_int() ->
 param_select_int() ->
     Int = small_int_max() + 1,
     {selected,["field"],[{1}, {Int}]}.
+
+param_select_bigint() ->
+    BigInt = big_int_max(),
+    {selected,["field"],[{1}, {BigInt}]}.
 
 param_select_decimal() ->
     {selected,["field"],[{1},{2}]}.

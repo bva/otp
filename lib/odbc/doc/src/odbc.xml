@@ -98,12 +98,12 @@
            INSERT, or DELETE queries. For other query types the value
            is driver defined, and hence should be ignored.    </code>
     <code type="none">
- odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
-      {sql_decimal, precision(), scale()} |
-      {sql_numeric, precision(), scale()} |
-      {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} |
-      {sql_wvarchar, size()} | sql_timestamp | {sql_float, precision()} |
-      sql_real | sql_double | sql_bit | atom()
+ odbc_data_type() = sql_ubigint | sql_bigint | sql_integer |
+      sql_smallint | sql_tinyint | {sql_decimal, precision(), scale()} |
+      {sql_numeric, precision(), scale()} | {sql_char, size()} |
+      {sql_wchar, size()} | {sql_varchar, size()} | {sql_wvarchar, size()} |
+      sql_timestamp | {sql_float, precision()} | sql_real | sql_double |
+      sql_bit | atom()
     </code>
     <code type="none">
  precision() = integer()    </code>

@@ -91,6 +91,7 @@
 #define EXIT_DESC		 21
 #define EXIT_BIND		 22
 #define EXIT_DRIVER_INFO         23
+#define EXIT_COLATTR             24
 
 /* COL_SIZE */
 #define COL_SQL_SMALLINT 5
@@ -99,6 +100,8 @@
 #define COL_SQL_DOUBLE 15
 #define COL_SQL_TINYINT 4
 #define COL_SQL_TIMESTAMP 19
+#define COL_SQL_BIGINT 19
+#define COL_SQL_UBIGINT 20
 
 /* Types of parameters given to param_query*/
 #define USER_SMALL_INT 1
@@ -115,6 +118,8 @@
 #define USER_WCHAR 12
 #define USER_WVARCHAR 13
 #define USER_TIMESTAMP 14
+#define USER_BIGINT 15
+#define USER_UBIGINT 16
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
@@ -154,6 +159,8 @@ typedef struct {
     union {
 	byte *string;
 	SQLINTEGER *integer;
+	SQLBIGINT *bigint;
+	SQLUBIGINT *ubigint;
 	double *floating;
 	Boolean *bool;
 

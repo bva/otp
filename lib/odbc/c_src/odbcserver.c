@@ -87,10 +87,10 @@
    NoRows - integer
    Parameters - [{Datatype, InOrOut, Value}]
    InOrOut = [ERL_ODBC_IN | ERL_ODBC_OUT | ERL_ODBC_INOUT]
-   Datatype -  USER_INT | USER_SMALL_INT | {USER_DECIMAL, Precision, Scale} |
-   {USER_NMERIC, Precision, Scale} | {USER_CHAR, Max} | {USER_VARCHAR, Max} |
-   {USER_WVARCHAR, Max} | {USER_FLOAT, Precision} | USER_REAL | USER_DOUBLE |
-   USER_TIMESTAMP
+   Datatype -  USER_UBIGINT | USER_BIGINT | USER_INT | USER_SMALL_INT |
+   {USER_DECIMAL, Precision, Scale} | {USER_NMERIC, Precision, Scale} |
+   {USER_CHAR, Max} | {USER_VARCHAR, Max} | {USER_WVARCHAR, Max} |
+   {USER_FLOAT, Precision} | USER_REAL | USER_DOUBLE | USER_TIMESTAMP
    Scale - integer
    Precision - integer
    Max - integer
@@ -124,6 +124,7 @@
 #include <netinet/in.h>
 #endif
 
+#include <ctype.h>
 #include <limits.h>
 
 #include "ei.h"
@@ -174,7 +175,8 @@ static db_result_msg encode_row_count(SQLINTEGER num_of_rows,
 static void encode_column_dyn(db_column column, int column_nr,
 			      db_state *state);
 static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
-			     SQLSMALLINT decimal_digits, db_state *state);
+			     SQLINTEGER signedness, SQLSMALLINT decimal_digits,
+			     db_state *state);
 static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
 			  int i, int j);
 
@@ -227,7 +229,7 @@ static void init_param_statement(int cols,
 
 static void map_dec_num_2_c_column(col_type *type, int precision,
 				   int scale);
-static db_result_msg map_sql_2_c_column(db_column* column);
+static db_result_msg map_sql_2_c_column(db_column* column, SQLINTEGER signedness);
 
 
 static param_array * bind_parameter_arrays(byte *buffer, int *index,
@@ -870,6 +872,7 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
     SQLSMALLINT num_of_columns;
     SQLCHAR name[MAX_NAME];
     SQLSMALLINT name_len, sql_type, dec_digits, nullable;
+    SQLINTEGER signedness;
     SQLLEN size;
     diagnos diagnos;
     int i;
@@ -915,10 +918,16 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
 				       &nullable)))
 	    DO_EXIT(EXIT_DESC);
 
+        if(!sql_success(SQLColAttribute(statement_handle(state),
+					(SQLSMALLINT)(i+1),
+					SQL_DESC_UNSIGNED,
+					NULL, 0, NULL, &signedness)))
+	    DO_EXIT(EXIT_COLATTR);
+
 	ei_x_encode_tuple_header(&dynamic_buffer(state), 2);
 	ei_x_encode_string_len(&dynamic_buffer(state),
 			       (char *)name, name_len);
-	encode_data_type(sql_type, size, dec_digits, state);
+	encode_data_type(sql_type, size, signedness, dec_digits, state);
     }
 
     ei_x_encode_empty_list(&dynamic_buffer(state));
@@ -1141,6 +1150,14 @@ static db_result_msg encode_out_params(db_state *state,
                 case SQL_C_SLONG:
                     ei_x_encode_long(&dynamic_buffer(state), ((long*)values)[j]);
                     break;
+                case SQL_C_SBIGINT:
+		    ei_x_encode_longlong(&dynamic_buffer(state),
+					 ((SQLBIGINT*)values)[j]);
+                    break;
+                case SQL_C_UBIGINT:
+		    ei_x_encode_ulonglong(&dynamic_buffer(state),
+					  ((SQLUBIGINT*)values)[j]);
+                    break;
                 case SQL_C_DOUBLE:
                     ei_x_encode_double(&dynamic_buffer(state),
                                        ((double*)values)[j]);
@@ -1203,6 +1220,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
     db_result_msg msg;
     SQLCHAR name[MAX_NAME];
     SQLSMALLINT name_len, sql_type, dec_digits, nullable;
+    SQLINTEGER signedness;
     SQLLEN size; 
     SQLRETURN result;
 
@@ -1219,6 +1237,12 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 				       &nullable)))
 	    DO_EXIT(EXIT_DESC);
 
+        if(!sql_success(SQLColAttribute(statement_handle(state),
+					(SQLSMALLINT)(i+1),
+					SQL_DESC_UNSIGNED,
+					NULL, 0, NULL, &signedness)))
+	    DO_EXIT(EXIT_COLATTR);
+
 	if(sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY)
 	    size = MAXCOLSIZE;
     
@@ -1226,7 +1250,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 	(columns(state)[i]).type.sql = sql_type;
 	(columns(state)[i]).type.col_size = size;
       
-	msg = map_sql_2_c_column(&columns(state)[i]);
+	msg = map_sql_2_c_column(&columns(state)[i], signedness);
 	if (msg.length > 0) {
 	    return msg; /* An error has occurred */
 	} else {
@@ -1425,7 +1449,15 @@ static void encode_column_dyn(db_column column, int column_nr,
 	    break;
 	case SQL_C_SLONG:
 	    ei_x_encode_long(&dynamic_buffer(state),
-	    	*(SQLINTEGER*)column.buffer);
+			     *(SQLINTEGER*)column.buffer);
+	    break;
+	case SQL_C_SBIGINT:
+	    ei_x_encode_longlong(&dynamic_buffer(state),
+				 *(SQLBIGINT*)column.buffer);
+	    break;
+	case SQL_C_UBIGINT:
+	    ei_x_encode_ulonglong(&dynamic_buffer(state),
+				  *(SQLUBIGINT*)column.buffer);
 	    break;
 	case SQL_C_DOUBLE:
 	    ei_x_encode_double(&dynamic_buffer(state),
@@ -1452,7 +1484,8 @@ static void encode_column_dyn(db_column column, int column_nr,
 }
 
 static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
-			     SQLSMALLINT decimal_digits, db_state *state)
+			     SQLINTEGER signedness, SQLSMALLINT decimal_digits,
+			     db_state *state)
 {
     switch(sql_type) {
     case SQL_CHAR:
@@ -1520,7 +1553,11 @@ static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
 	ei_x_encode_atom(&dynamic_buffer(state), "sql_timestamp");
 	break;
     case SQL_BIGINT:
-	ei_x_encode_atom(&dynamic_buffer(state), "SQL_BIGINT");
+	if(signedness==SQL_TRUE) {
+	    ei_x_encode_atom(&dynamic_buffer(state), "sql_ubigint");
+	} else {
+	    ei_x_encode_atom(&dynamic_buffer(state), "sql_bigint");
+	}
 	break;
     case SQL_BINARY:
 	ei_x_encode_atom(&dynamic_buffer(state), "SQL_BINARY");
@@ -1646,7 +1683,34 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 
 	param->values.integer[j]=(SQLINTEGER)l64;
 	break;
-	
+    case SQL_C_SBIGINT:
+
+	if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
+             (erl_type == ERL_INTEGER_EXT) ||
+             (erl_type == ERL_SMALL_BIG_EXT) ||
+             (erl_type == ERL_LARGE_BIG_EXT))) {
+	    return FALSE;
+	}
+
+	if(ei_decode_longlong(buffer, index, &param->values.bigint[j])) {
+	    return FALSE;
+	}
+
+	break;
+    case SQL_C_UBIGINT:
+
+	if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
+             (erl_type == ERL_INTEGER_EXT) ||
+             (erl_type == ERL_SMALL_BIG_EXT) ||
+             (erl_type == ERL_LARGE_BIG_EXT))) {
+	    return FALSE;
+	}
+
+	if(ei_decode_ulonglong(buffer, index, &param->values.ubigint[j])) {
+	    return FALSE;
+	}
+
+	break;
     case SQL_C_DOUBLE: 
 	    if((erl_type != ERL_FLOAT_EXT)) { 
 		    return FALSE;
@@ -2093,6 +2157,22 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	params->values.integer =
 	    (SQLINTEGER*)safe_malloc(num_param_values * params->type.len);
 	break;
+    case USER_BIGINT:
+	params->type.sql = SQL_BIGINT;
+	params->type.c = SQL_C_SBIGINT;
+	params->type.len = sizeof(SQLBIGINT);
+	params->type.col_size = COL_SQL_BIGINT;
+	params->values.bigint =
+	    (SQLBIGINT*)safe_malloc(num_param_values * params->type.len);
+	break;
+    case USER_UBIGINT:
+	params->type.sql = SQL_BIGINT;
+	params->type.c = SQL_C_UBIGINT;
+	params->type.len = sizeof(SQLUBIGINT);
+	params->type.col_size = COL_SQL_UBIGINT;
+	params->values.ubigint =
+	    (SQLUBIGINT*)safe_malloc(num_param_values * params->type.len);
+	break;
     case USER_INT:
 	params->type.sql = SQL_INTEGER;
 	params->type.c = SQL_C_SLONG;
@@ -2296,7 +2376,8 @@ static void map_dec_num_2_c_column(col_type *type, int precision, int scale)
 
 /* Description: Transform SQL columntype to C columntype. Returns a dummy
  db_result_msg with length 0 on success and an errormessage otherwise.*/
-static db_result_msg map_sql_2_c_column(db_column* column)
+static db_result_msg map_sql_2_c_column(db_column* column,
+					SQLINTEGER signedness)
 {
     db_result_msg msg;
 
@@ -2334,6 +2415,17 @@ static db_result_msg map_sql_2_c_column(db_column* column)
 	column -> type.c = SQL_C_SLONG;
 	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
 	break;
+    case SQL_BIGINT:
+	if(signedness==SQL_TRUE) {
+	    column -> type.len = sizeof(SQLUBIGINT);
+	    column -> type.c = SQL_C_UBIGINT;
+	} else {
+	    column -> type.len = sizeof(SQLBIGINT);
+	    column -> type.c = SQL_C_SBIGINT;
+	}
+
+	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	break;
     case SQL_REAL:
     case SQL_FLOAT:
     case SQL_DOUBLE:
@@ -2353,11 +2445,6 @@ static db_result_msg map_sql_2_c_column(db_column* column)
       column -> type.c = SQL_C_TYPE_TIMESTAMP;
       column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
       break;
-    case SQL_BIGINT:
-	column -> type.len = DEC_NUM_LENGTH;
-	column -> type.c = SQL_C_CHAR;
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
-	break;
     case SQL_BIT:
 	column -> type.len = sizeof(byte);
 	column -> type.c = SQL_C_BIT;
@@ -2400,11 +2487,13 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
 
 	ei_decode_list_header(buffer, index, &size);
 
-	if(params[i].type.c == SQL_C_SLONG) {
-         /* Get rid of the dummy value 256 that is added as the first value
-	    of all integer parameter value lists. This is to avoid that the
-	    list will be encoded as a string if all values are less
-	    than 256 */
+	if(params[i].type.c == SQL_C_SLONG
+	   || params[i].type.c == SQL_C_SBIGINT
+	   || params[i].type.c == SQL_C_UBIGINT) {
+	    /* Get rid of the dummy value 256 that is added as the first value
+	       of all integer parameter value lists. This is to avoid that the
+	       list will be encoded as a string if all values are less
+	       than 256 */
 	    ei_decode_long(buffer, index, &dummy); 
 	}
   

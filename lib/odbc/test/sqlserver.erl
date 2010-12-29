@@ -249,6 +249,10 @@ param_select_int() ->
     Int = small_int_max() + 1,
     {selected,["FIELD"],[{1}, {Int}]}.
 
+param_select_bigint() ->
+    BigInt = big_int_max(),
+    {selected,["field"],[{1}, {BigInt}]}.
+
 param_select_decimal() ->
     {selected,["FIELD"],[{1},{2}]}.
 

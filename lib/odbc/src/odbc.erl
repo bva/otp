@@ -897,6 +897,11 @@ param_values(Params) ->
     end.
 
 %%-------------------------------------------------------------------------
+
+fix_params({sql_ubigint, InOut, Values}) ->
+    {?USER_UBIGINT, fix_inout(InOut), [256 | Values]};
+fix_params({sql_bigint, InOut, Values}) ->
+    {?USER_BIGINT, fix_inout(InOut), [256 | Values]};
 fix_params({sql_integer, InOut, Values}) ->
     {?USER_INT, fix_inout(InOut), [256 | Values]};
 fix_params({sql_smallint, InOut, Values}) ->

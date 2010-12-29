@@ -123,6 +123,7 @@ AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
+AC_CHECK_TYPES([long long, __int64], CFLAGS="$CFLAGS -DHAVE_LONG_LONG")
 AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_addr], [], [],
 			 [#if HAVE_WINSOCK2_H
 			  #include <winsock2.h>

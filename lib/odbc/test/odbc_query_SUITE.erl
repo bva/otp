@@ -654,7 +654,8 @@ param_integers(doc)->
     ["Test insertion of integers by parameterized queries."];
 param_integers(suite) ->
     [param_insert_tiny_int,
-     param_insert_small_int, param_insert_int, param_insert_integer].
+     param_insert_small_int, param_insert_int, param_insert_integer,
+     param_insert_bigint, param_insert_ubigint].
 %%-------------------------------------------------------------------------
 param_insert_tiny_int(doc)->
     ["Test insertion of tiny ints by parameterized queries."];
@@ -787,6 +788,75 @@ param_insert_integer(Config) when is_list(Config) ->
 				"(FIELD) VALUES(?)", 
 				[{sql_integer, [1, 2.3]}])),  
     ok.
+
+%%-------------------------------------------------------------------------
+param_insert_bigint(doc)->
+    ["Test insertion of big integers by parameterized queries."];
+param_insert_bigint(suite) ->
+    [];
+param_insert_bigint(Config) when is_list(Config) ->
+    Ref = ?config(connection_ref, Config),
+    Table = ?config(tableName, Config),
+
+    {updated, _} =
+	odbc:sql_query(
+	  Ref,
+	  "CREATE TABLE " ++ Table ++ ?RDBMS:create_big_int_table()),
+
+    BigInt = ?RDBMS:big_int_max(),
+
+    {updated, Count} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++
+					    "(FIELD) VALUES(?)",
+					[{sql_bigint, [1, BigInt]}]),
+    true = odbc_test_lib:check_row_count(2, Count),
+
+    InsertResult = ?RDBMS:param_select_bigint(),
+
+    InsertResult =
+	odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
+
+    {'EXIT',{badarg,odbc,param_query,'Params'}} =
+	(catch odbc:param_query(Ref, "INSERT INTO " ++ Table ++
+				"(FIELD) VALUES(?)",
+				[{sql_bigint, [1, 2.3]}])),
+    ok.
+
+%%-------------------------------------------------------------------------
+param_insert_ubigint(doc)->
+    ["Test insertion of unsigned big integers by parameterized queries."];
+param_insert_ubigint(suite) ->
+    [];
+param_insert_ubigint(Config) when is_list(Config) ->
+    case catch ?RDBMS:create_ubig_int_table() of
+	{'EXIT', _} ->
+	    {skip, "unsigned BIGINT not supported"};
+	TDefs ->
+	    Ref = ?config(connection_ref, Config),
+	    Table = ?config(tableName, Config),
+
+	    {updated, _} =
+		odbc:sql_query(
+		  Ref,
+		  "CREATE TABLE " ++ Table ++ TDefs),
+
+	    UBigInt = ?RDBMS:ubig_int_max(),
+
+	    {updated, Count} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++
+						    "(FIELD) VALUES(?)",
+						[{sql_ubigint, [1, UBigInt]}]),
+	    true = odbc_test_lib:check_row_count(2, Count),
+
+	    InsertResult = ?RDBMS:param_select_ubigint(),
+
+	    InsertResult =
+		odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
+
+	    {'EXIT',{badarg,odbc,param_query,'Params'}} =
+		(catch odbc:param_query(Ref, "INSERT INTO " ++ Table ++
+					    "(FIELD) VALUES(?)",
+					[{sql_ubigint, [1, 2.3]}])),
+	    ok
+    end.
 
 %%-------------------------------------------------------------------------
 param_insert_decimal(doc)->

@@ -72,6 +72,8 @@
 -define(USER_WCHAR, 12).
 -define(USER_WVARCHAR, 13).
 -define(USER_TIMESTAMP, 14).
+-define(USER_BIGINT, 15).
+-define(USER_UBIGINT, 16).
 
 %% INPUT & OUTPUT TYPE 
 -define(IN, 0).
@@ -103,6 +105,7 @@
 -define(EXIT_DESC,		 21).
 -define(EXIT_BIND,		 22).
 -define(EXIT_DRIVER_INFO,        23).
+-define(EXIT_COLATTR,           24).
 
 %% Misc constants
 -define(DEFAULT_TIMEOUT, infinity).
@@ -159,6 +162,8 @@
 		 could_not_bind_data_buffers;
 	    (?EXIT_DRIVER_INFO) ->
 		 collecting_of_driver_information_faild;
+	    (?EXIT_COLATTR) ->
+		 could_not_access_column_description;
 	    (_) ->
 		 killed
 	 end)).

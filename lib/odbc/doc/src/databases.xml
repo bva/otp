@@ -158,6 +158,10 @@ when p >= 16 </cell>
         <cell align="left" valign="middle">Integer </cell>
       </row>
       <row>
+        <cell align="left" valign="middle">SQL_BIGINT </cell>
+        <cell align="left" valign="middle">Integer </cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">SQL_SMALLINT </cell>
         <cell align="left" valign="middle">Integer </cell>
       </row>
@@ -215,6 +219,10 @@ when p >= 16 </cell>
       <row>
         <cell align="left" valign="middle">SQL_LONGVARBINARY</cell>
 	<cell align="left" valign="middle">String | Binary (configurable)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">SQL_BIGINT </cell>
+        <cell align="left" valign="middle">Integer </cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_TINYINT </cell>
