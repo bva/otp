@@ -9,6 +9,7 @@
 /common_test/doc/src/ct_ssh.xml
 /common_test/doc/src/ct_telnet.xml
 /common_test/doc/src/unix_telnet.xml
+/common_test/doc/src/ct_slave.xml
 
 # edoc
 
